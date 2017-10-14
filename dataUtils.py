@@ -1,8 +1,9 @@
+#coding=utf8
 from collections import Counter
 import itertools
 import numpy as np
 import re
-
+#预处理
 def clean_str(string):
     string = re.sub(r"[^A-Za-z0-9:(),!?\'\`]", " ", string)
     string = re.sub(r" : ", ":", string)
