@@ -2,13 +2,14 @@ import tensorflow as tf
 
 class DCNN():
     def __init__(self, batch_size, sentence_length, num_filters, embed_size, top_k, k1):
-        self.batch_size = batch_size
+        self.batch_size = batch_size 
         self.sentence_length = sentence_length
-        self.num_filters = num_filters
+        self.num_filters = num_filters #过滤器数量
         self.embed_size = embed_size
-        self.top_k = top_k
-        self.k1 = k1
-
+        self.top_k = top_k #顶层k-max的值
+        self.k1 = k1 #第一层k值
+    
+    #卷积层+k-max池化层
     def per_dim_conv_k_max_pooling_layer(self, x, w, b, k):
         self.k1 = k
         input_unstack = tf.unstack(x, axis=2)
@@ -28,7 +29,7 @@ class DCNN():
         #[batch_size, k1, embed_size, num_filters[0]]
         #print conv.get_shape()
         return conv
-
+    #卷积层：输出参数x是输入向量，w是权重，b是偏置，返回卷积后的向量
     def per_dim_conv_layer(self, x, w, b):
         input_unstack = tf.unstack(x, axis=2)
         w_unstack = tf.unstack(w, axis=1)
@@ -41,7 +42,7 @@ class DCNN():
             conv = tf.stack(convs, axis=2)
             #[batch_size, k1+ws-1, embed_size, num_filters[1]]
         return conv
-
+    #池化层：池化后还是一个向量
     def fold_k_max_pooling(self, x, k):
         input_unstack = tf.unstack(x, axis=2)
         out = []
@@ -54,7 +55,7 @@ class DCNN():
                 out.append(values)
             fold = tf.stack(out, axis=2)#[batch_size, k2, embed_size/2, num_filters[1]]
         return fold
-
+    #输出的全连接层
     def full_connect_layer(self, x, w, b, wo, dropout_keep_prob):
         with tf.name_scope("full_connect_layer"):
             h = tf.nn.tanh(tf.matmul(x, w) + b)
