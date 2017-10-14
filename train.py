@@ -5,38 +5,47 @@ import numpy as np
 import time
 import os
 
+#词向量后的向量维度
 embed_dim = 100
 ws = [7, 5]
 top_k = 4
 k1 = 19
 num_filters = [6, 14]
+#开发集的大小
 dev = 300
+#每一批次的数据量
 batch_size = 50
+#循环次数
 n_epochs = 30
 num_hidden = 100
+#句子长度
 sentence_length = 37
+#分类的类别
 num_class = 6
+#学习率
 lr = 0.01
 evaluate_every = 100
 checkpoint_every = 100
 num_checkpoints = 5
-
+#测试集大小
+test_size = 500
 # Load data
 print("Loading data...")
 x_, y_, vocabulary, vocabulary_inv, test_size = dataUtils.load_data()
 #x_:长度为5952的np.array。（包含5452个训练集和500个测试集）其中每个句子都是padding成长度为37的list（padding的索引为0）
 #y_:长度为5952的np.array。每一个都是长度为6的onehot编码表示其类别属性
-#vocabulary：长度为8789的字典，说明语料库中一共包含8789各单词。key是单词，value是索引
+#vocabulary：长度为8789的字典，说明语料库中一共包含8789个单词。key是单词，value是索引，例如：{'<PAD/>': 0, 'the': 1, ',': 2, 'a': 3, 'and': 4, ..}
 #vocabulary_inv：长度为8789的list，是按照单词出现次数进行排列。依次为：<PAD?>,\\?,the,what,is,of,in,a....
 #test_size:500,测试集大小
 
-# Randomly shuffle data
+# Randomly shuffle data：随机分出训练集和测试集
 x, x_test = x_[:-test_size], x_[-test_size:]
 y, y_test = y_[:-test_size], y_[-test_size:]
 shuffle_indices = np.random.permutation(np.arange(len(y)))
+#随机化数据
 x_shuffled = x[shuffle_indices]
 y_shuffled = y[shuffle_indices]
-
+#从训练集中分出开发集合
 x_train, x_dev = x_shuffled[:-dev], x_shuffled[-dev:]
 y_train, y_dev = y_shuffled[:-dev], y_shuffled[-dev:]
 
@@ -47,6 +56,7 @@ def init_weights(shape, name):
     return tf.Variable(tf.truncated_normal(shape, stddev=0.01), name=name)
 
 sent = tf.placeholder(tf.int64, [None, sentence_length])
+#y的占位符
 y = tf.placeholder(tf.float64, [None, num_class])
 dropout_keep_prob = tf.placeholder(tf.float32, name="dropout")
 
@@ -86,7 +96,9 @@ with tf.Session() as sess:
     #init = tf.global_variables_initializer().run()
 
     global_step = tf.Variable(0, name="global_step", trainable=False)
+    #优化器
     optimizer = tf.train.AdamOptimizer(1e-3)
+    #计算梯度代价
     grads_and_vars = optimizer.compute_gradients(cost)
     train_op = optimizer.apply_gradients(grads_and_vars, global_step=global_step)
 
@@ -100,7 +112,7 @@ with tf.Session() as sess:
             grad_summaries.append(sparsity_summary)
     grad_summaries_merged = tf.summary.merge(grad_summaries)
 
-    # Output directory for models and summaries
+    # Output directory for models and summaries:输出统计数据为了tensorborad
     timestamp = str(int(time.time()))
     out_dir = os.path.abspath(os.path.join(os.path.curdir, "runs", timestamp))
     print("Writing to {}\n".format(out_dir))
@@ -128,19 +140,19 @@ with tf.Session() as sess:
 
     # Initialize all variables
     sess.run(tf.global_variables_initializer())
-
+    #训练模型
     def train_step(x_batch, y_batch):
         feed_dict = {
-            sent: x_batch,
-            y: y_batch,
-            dropout_keep_prob: 0.5
+            sent: x_batch,#每次输出的向量
+            y: y_batch,#对应标记
+            dropout_keep_prob: 0.5 #避免过拟合
         }
         _, step, summaries, loss, accuracy = sess.run(
             [train_op, global_step, train_summary_op, cost, acc],
             feed_dict)
         print("TRAIN step {}, loss {:g}, acc {:g}".format(step, loss, accuracy))
         train_summary_writer.add_summary(summaries, step)
-
+    #评估模型
     def dev_step(x_batch, y_batch, writer=None):
         """
         Evaluates model on a dev set
@@ -148,7 +160,7 @@ with tf.Session() as sess:
         feed_dict = {
             sent: x_batch,
             y: y_batch,
-            dropout_keep_prob: 1.0
+            dropout_keep_prob: 1.0 #在评估的时候dropout是1，全连接
         }
         step, summaries, loss, accuracy = sess.run(
             [global_step, dev_summary_op, cost, acc],
@@ -158,27 +170,32 @@ with tf.Session() as sess:
             writer.add_summary(summaries, step)
         return accuracy, loss
 
-
+    #分配每次迭代计算的数据
     batches = dataUtils.batch_iter(zip(x_train, y_train), batch_size, n_epochs)
 
     # Training loop. For each batch...
     max_acc = 0
     best_at_step = 0
+    #开始分批次执行训练
     for batch in batches:
         x_batch, y_batch = zip(*batch)
+        #执行训练
         train_step(x_batch, y_batch)
         current_step = tf.train.global_step(sess, global_step)
+        #输出中间值
         if current_step % evaluate_every == 0:
             print("\nEvaluation:")
             acc_dev, _ = dev_step(x_dev, y_dev, writer=dev_summary_writer)
+            #寻找最佳值
             if acc_dev >= max_acc:
                 max_acc = acc_dev
                 best_at_step = current_step
+                #保存最佳模型
                 path = saver.save(sess, checkpoint_prefix, global_step=current_step)
             print("")
         if current_step % checkpoint_every == 0:
             print 'Best of valid = {}, at step {}'.format(max_acc, best_at_step)
-
+    #执行测试
     saver.restore(sess, checkpoint_prefix + '-' + str(best_at_step))
     print 'Finish training. On test set:'
     acc, loss = dev_step(x_test, y_test, writer=None)
