@@ -1,7 +1,9 @@
 # Dynamic-CNN-Sentence-Classification-TF
 本代码是论文： A Convolutional Neural Network for Modelling Sentences”基于TensorFlow的实现方法：
 论文地址：https://arxiv.org/abs/1404.2188
+
 本代码部分注解：
+
 1、数据集及处理方法
 本文仿真的是论文的第二个实验，使用的数据集是TREC。该数据集是QA领域用于分类问题类型的。其中问题主要分为6大类别，比如地理位置、人、数学信息等等，这里使用one-hot编码表明其类别关系。其包含5452个标记好的训练集和500个测试集。每个样本数据如下所示，以冒号分隔，前面标示类别，后面为问题：
 NUM:date When did Hawaii become a state ?
